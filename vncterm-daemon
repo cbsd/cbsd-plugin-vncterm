@@ -1,0 +1,130 @@
+#!/usr/local/bin/cbsd
+#v11.0.0
+MYARG="jname mode"
+MYOPTARG="addr vm_port command password"
+MYDESC="Run VNC server for jail"
+ADDHELP="mode=run, stop, status\n\
+addr= IP address for listen, default - 127.0.0.1\n\
+vm_port= PORT for listen, default - 0 \(auto\)\n\
+command= run comman on start, default: /bin/csh\n\
+password= set password\n"
+
+. ${subr}
+. ${system}
+. ${tools}
+. ${strings}
+
+init $*
+
+test_for_stop()
+{
+	local _test
+
+	if [ -f ${vnc_lockfile}.stop ]; then
+		vnc_stop
+		stopme=1
+	fi
+	return 0
+}
+
+vnc_stop()
+{
+	local _pid
+
+	[ ! -f ${vnc_pidfile} ] && exit 0
+	_pid=$( /bin/cat ${vnc_pidfile} )
+
+	kill -9 ${_pid}
+
+	# extra check for no any vncterm process related to this jail is active
+	epid=$( /bin/ps axopid,ucomm,command | /usr/bin/grep "${moduledir}/vncterm.d/cbsdvnc -j ${jid} " | /usr/bin/grep -v grep | /usr/bin/awk '{printf $1" "}' )
+	[ -n "${epid}" ] && kill -9 ${epid} > /dev/null 2>&1
+
+	/bin/rm -f ${vnc_lockfile} ${vnc_lockfile}.stop
+	exit 0
+}
+
+. ${jrcconf}
+[ $? -eq 1 ] && err 1 "${MAGENTA}No such jail: ${GREEN}${jname}${NORMAL}"
+[ ${jid} -eq 0 ] && err 1 "${MAGENTA}Not running${NORMAL}"
+
+cbsdvnc="${moduledir}/vncterm.d/cbsdvnc"
+
+[ ! -x "${cbsdvnc}" ] && err 1 "${MAGENTA}No cbsdvnc, please do: ${GREEN}make -C ${moduledir}/vncterm.d${NORMAL}"
+
+[ -z "${command}" ] && command="/bin/csh"
+
+password_args=
+
+if [ -n "${password}" ]; then
+	password_args="-w ${password}"
+fi
+
+if [ -n "${vm_port}" ]; then
+	port_args="-p ${vm_port}"
+else
+	. ${workdir}/virtual.subr
+	vm_port=$( get_next_rd_port 2>/dev/null || get_next_tcp_port -s 5900 -e 6900 )
+	port_args="-p ${vm_port}"
+fi
+
+if [ -n "${addr}" ]; then
+	addr_args="-a 127.0.0.1"
+fi
+
+vnc_lockfile="/tmp/cbsd-vnc-${jname}.lock"
+vnc_pidfile="/tmp/cbsd-vnc-${jname}.pid"
+
+vnc_port="${jailsysdir}/${jname}/vnc_port"
+
+case "${mode}" in
+	run)
+		if [ -f "${vnc_lockfile}" ]; then
+			pid=0
+			[ -f "${vnc_pidfile}" ] && pid=$( /bin/cat ${vnc_pidfile} )
+			err 1 "${MAGENTA}Locked by ${vnc_lockfile} with pid: ${GREEN}${pid}${NORMAL}"
+		fi
+
+		trap "/bin/rm -f ${vnc_lockfile} ${vnc_pidfile} ${vncstat} ${vnc_port}" HUP INT ABRT BUS TERM EXIT KILL
+
+		stopme=0
+
+		[ -n "${password}" ] && echo "password=${password}" > ${vncstat}
+		echo "${vm_port}" > ${vnc_port}
+
+		while [ ${stopme} -eq 0 ]; do
+			/usr/sbin/daemon /usr/bin/lockf -s -t0 ${vnc_lockfile} ${cbsdvnc} -j ${jid} -s ${command} ${password_args} ${port_args} ${addr_args} -i ${vnc_pidfile}
+			sleep 1
+			${ECHO} "${MAGENTA}VRDP is enabled. VNC port: ${GREEN}${vm_port}. ${MAGENTA}VNC pass: ${GREEN}${password}${NORMAL}${NORMAL}"
+			watchtest=$( cbsd_fwatch --file=${vnc_lockfile} --timeout=0 )
+			if [ "${watchtest}" = "deleted" ]; then
+				/bin/rm -f ${vnc_lockfile} ${vnc_pidfile}
+			fi
+			test_for_stop
+		done
+		exit 0
+		;;
+	status)
+		if [ -f ${vnc_lockfile} ]; then
+			_pid=0
+			if [ -r ${vncstat} ]; then
+				_vncport=$( /bin/cat ${vnc_port} )
+			else
+				_vncport="Unknown"
+			fi
+
+			[ -f ${vnc_pidfile} ] && _pid=$( /bin/cat ${vnc_pidfile} )
+			${ECHO} "${MAGENTA}VNC enabled with pid: ${GREEN}${_pid}${MAGENTA}. Port: ${GREEN}${_vncport}${NORMAL}"
+		else
+			${ECHO} "${MAGENTA}VNC not active${NORMAL}"
+		fi
+		exit 0
+		;;
+	stop)
+		/usr/bin/touch ${vnc_lockfile}.stop
+		/bin/rm -f ${vnc_lockfile}
+		;;
+	*)
+		${ECHO} "${MAGENTA}Unknown mode. Use ${GREEN}run${MAGENTA} or ${GREEN}stop${NORMAL}"
+		;;
+esac

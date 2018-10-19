@@ -1,0 +1,61 @@
+#!/usr/local/bin/cbsd
+#v11.0.0
+MYARG="jname mode"
+MYOPTARG="addr vm_port command password"
+MYDESC="Run VNC server for jail"
+ADDHELP="mode=run, stop, status\n\
+addr= IP address for listen, default - nodeip\n\
+vm_port= PORT for listen, default - 0 \(auto\)\n\
+command= run comman on start, default: /bin/csh\n\
+password= set password\n"
+
+. ${subr}
+. ${system}
+. ${tools}
+. ${strings}
+
+init $*
+
+. ${jrcconf}
+[ $? -eq 1 ] && err 1 "${MAGENTA}No such jail: ${GREEN}${jname}${NORMAL}"
+[ ${jid} -eq 0 ] && err 1 "${MAGENTA}Not running${NORMAL}"
+
+cbsdvnc="${moduledir}/vncterm.d/cbsdvnc"
+
+[ ! -x "${cbsdvnc}" ] && err 1 "${MAGENTA}No cbsdvnc, please do: ${GREEN}make -C ${moduledir}/vncterm.d${NORMAL}"
+
+vnc_port="${jailsysdir}/${jname}/vnc_port"
+vnc_lockfile="/tmp/cbsd-vnc-${jname}.lock"
+vnc_pidfile="/tmp/cbsd-vnc-${jname}.pid"
+
+case "${mode}" in
+	run)
+		if [ -r "${vncstat}" ]; then
+			${ECHO} "${MAGENTA}Already active: ${NORMAL}"
+			/bin/cat ${vncstat}
+			exit 0
+		fi
+		;;
+	status)
+		if [ -f ${vnc_lockfile} ]; then
+			_pid=0
+
+			if [ -r ${vncport} ]; then
+				_vncport=$( /bin/cat ${vnc_port} )
+			else
+				_vncport="Unknown"
+			fi
+
+			[ -f ${vnc_pidfile} ] && _pid=$( /bin/cat ${vnc_pidfile} )
+			${ECHO} "${MAGENTA}VNC enabled with pid: ${GREEN}${_pid}${NORMAL}"
+			${ECHO} "${MAGENTA}Port: ${GREEN}${_vncport}${NORMAL}"
+		else
+			${ECHO} "${MAGENTA}VNC not active${NORMAL}"
+		fi
+		exit 0
+		;;
+	stop)
+		vncterm-daemon jname=$jname mode=stop
+esac
+
+exec daemon cbsd vncterm-daemon $*
