@@ -32,15 +32,15 @@ vnc_stop()
 	local _pid
 
 	[ ! -f ${vnc_pidfile} ] && exit 0
-	_pid=$( /bin/cat ${vnc_pidfile} )
+	_pid=$( ${CAT_CMD} ${vnc_pidfile} )
 
 	kill -9 ${_pid}
 
 	# extra check for no any vncterm process related to this jail is active
-	epid=$( /bin/ps axopid,ucomm,command | /usr/bin/grep "${moduledir}/vncterm.d/cbsdvnc -j ${jid} " | /usr/bin/grep -v grep | /usr/bin/awk '{printf $1" "}' )
+	epid=$( ${PS_CMD} axopid,ucomm,command | ${GREP_CMD} "${distmoduledir}/vncterm.d/cbsdvnc -j ${jid} " | ${GREP_CMD} -v grep | ${AWK_CMD} '{printf $1" "}' )
 	[ -n "${epid}" ] && kill -9 ${epid} > /dev/null 2>&1
 
-	/bin/rm -f ${vnc_lockfile} ${vnc_lockfile}.stop
+	${RM_CMD} -f ${vnc_lockfile} ${vnc_lockfile}.stop
 	exit 0
 }
 
@@ -48,9 +48,9 @@ vnc_stop()
 [ $? -eq 1 ] && err 1 "${MAGENTA}No such jail: ${GREEN}${jname}${NORMAL}"
 [ ${jid} -eq 0 ] && err 1 "${MAGENTA}Not running${NORMAL}"
 
-cbsdvnc="${moduledir}/vncterm.d/cbsdvnc"
+cbsdvnc="${distmoduledir}/vncterm.d/cbsdvnc"
 
-[ ! -x "${cbsdvnc}" ] && err 1 "${MAGENTA}No cbsdvnc, please do: ${GREEN}make -C ${moduledir}/vncterm.d${NORMAL}"
+[ ! -x "${cbsdvnc}" ] && err 1 "${MAGENTA}No cbsdvnc, please do: ${GREEN}make -C ${distmoduledir}/vncterm.d${NORMAL}"
 
 [ -z "${command}" ] && command="/bin/csh"
 
@@ -81,11 +81,11 @@ case "${mode}" in
 	run)
 		if [ -f "${vnc_lockfile}" ]; then
 			pid=0
-			[ -f "${vnc_pidfile}" ] && pid=$( /bin/cat ${vnc_pidfile} )
+			[ -f "${vnc_pidfile}" ] && pid=$( ${CAT_CMD} ${vnc_pidfile} )
 			err 1 "${MAGENTA}Locked by ${vnc_lockfile} with pid: ${GREEN}${pid}${NORMAL}"
 		fi
 
-		trap "/bin/rm -f ${vnc_lockfile} ${vnc_pidfile} ${vncstat} ${vnc_port}" HUP INT ABRT BUS TERM EXIT KILL
+		trap "${RM_CMD} -f ${vnc_lockfile} ${vnc_pidfile} ${vncstat} ${vnc_port}" HUP INT ABRT BUS TERM EXIT KILL
 
 		stopme=0
 
@@ -98,7 +98,7 @@ case "${mode}" in
 			${ECHO} "${MAGENTA}VRDP is enabled. VNC port: ${GREEN}${vm_port}. ${MAGENTA}VNC pass: ${GREEN}${password}${NORMAL}${NORMAL}"
 			watchtest=$( cbsd_fwatch --file=${vnc_lockfile} --timeout=0 )
 			if [ "${watchtest}" = "deleted" ]; then
-				/bin/rm -f ${vnc_lockfile} ${vnc_pidfile}
+				${RM_CMD} -f ${vnc_lockfile} ${vnc_pidfile}
 			fi
 			test_for_stop
 		done
@@ -108,12 +108,12 @@ case "${mode}" in
 		if [ -f ${vnc_lockfile} ]; then
 			_pid=0
 			if [ -r ${vncstat} ]; then
-				_vncport=$( /bin/cat ${vnc_port} )
+				_vncport=$( ${CAT_CMD} ${vnc_port} )
 			else
 				_vncport="Unknown"
 			fi
 
-			[ -f ${vnc_pidfile} ] && _pid=$( /bin/cat ${vnc_pidfile} )
+			[ -f ${vnc_pidfile} ] && _pid=$( ${CAT_CMD} ${vnc_pidfile} )
 			${ECHO} "${MAGENTA}VNC enabled with pid: ${GREEN}${_pid}${MAGENTA}. Port: ${GREEN}${_vncport}${NORMAL}"
 		else
 			${ECHO} "${MAGENTA}VNC not active${NORMAL}"
@@ -121,8 +121,8 @@ case "${mode}" in
 		exit 0
 		;;
 	stop)
-		/usr/bin/touch ${vnc_lockfile}.stop
-		/bin/rm -f ${vnc_lockfile}
+		${TOUCH_CMD} ${vnc_lockfile}.stop
+		${RM_CMD} -f ${vnc_lockfile}
 		;;
 	*)
 		${ECHO} "${MAGENTA}Unknown mode. Use ${GREEN}run${MAGENTA} or ${GREEN}stop${NORMAL}"
