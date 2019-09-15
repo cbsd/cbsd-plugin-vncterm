@@ -1,5 +1,5 @@
 #!/usr/local/bin/cbsd
-#v11.0.0
+#v12.1.1
 MYARG="jname mode"
 MYOPTARG="addr vm_port command password"
 MYDESC="Run VNC server for jail"
@@ -63,8 +63,10 @@ fi
 if [ -n "${vm_port}" ]; then
 	port_args="-p ${vm_port}"
 else
-	. ${workdir}/virtual.subr
+	. ${distdir}/virtual.subr
+
 	vm_port=$( get_next_tcp_port -a 127.0.0.1 -s 5900 -e 6900 )
+	_ret=$?
 	port_args="-p ${vm_port}"
 fi
 
