@@ -64,7 +64,7 @@ if [ -n "${vm_port}" ]; then
 	port_args="-p ${vm_port}"
 else
 	. ${workdir}/virtual.subr
-	vm_port=$( get_next_rd_port 2>/dev/null || get_next_tcp_port -s 5900 -e 6900 )
+	vm_port=$( get_next_tcp_port -a 127.0.0.1 -s 5900 -e 6900 )
 	port_args="-p ${vm_port}"
 fi
 
