@@ -14,7 +14,7 @@ password= set password\n"
 . ${tools}
 . ${strings}
 
-init $*
+. ${cbsdinit}
 
 test_for_stop()
 {
@@ -130,3 +130,5 @@ case "${mode}" in
 		${ECHO} "${MAGENTA}Unknown mode. Use ${GREEN}run${MAGENTA} or ${GREEN}stop${NORMAL}"
 		;;
 esac
+
+exit 0

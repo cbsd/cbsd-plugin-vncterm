@@ -14,7 +14,7 @@ password= set password\n"
 . ${tools}
 . ${strings}
 
-init $*
+. ${cbsdinit}
 
 . ${jrcconf}
 [ $? -eq 1 ] && err 1 "${N1_COLOR}No such jail: ${N2_COLOR}${jname}${N0_COLOR}"

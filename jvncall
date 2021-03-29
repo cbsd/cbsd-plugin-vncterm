@@ -10,7 +10,7 @@ ADDHELP="mode=run, stop, status\n"
 . ${tools}
 . ${strings}
 
-init $*
+. ${cbsdinit}
 
 active_jname=$( cbsdsqlro local SELECT jname FROM jails WHERE emulator=\"jail\" AND status=\"1\" 2>/dev/null | ${XARGS_CMD} )
 
@@ -35,3 +35,5 @@ case "${mode}" in
 		err 1 "${N1_COLOR}Please set mode to 'run' or 'stop'${N0_COLOR}"
 		;;
 esac
+
+exit 0
